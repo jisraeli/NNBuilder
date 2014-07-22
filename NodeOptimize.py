@@ -7,13 +7,24 @@ from sklearn import datasets
 
 
 
-def OptimalNode(x_train, y_train):
+def OptimalNode(x_train, y_train, bias=False, n_iter=5, alpha=0.01):
+    '''
+    inputs
+        x_train: training features
+        y_train: response variable
+        n_iter: # of iterations for SGD
+        alpha: strength of L2 penalty (default penalty for now)
+    outputs
+        Node: dictionary with Node parameters an predict method
+    '''
+
     rng = numpy.random
 
     feats = len(x_train[0, :])
     print "shape of x: ", numpy.shape(x_train)
     D = (x_train, y_train)
-    training_steps = 10000
+    training_steps = n_iter
+    print "training steps: ", training_steps
 
     # Declare Theano symbolic variables
     x = T.matrix("x")
@@ -26,24 +37,33 @@ def OptimalNode(x_train, y_train):
     print "w is of length: ", len(w.get_value())
 
     # Construct Theano expression graph
-    p_1 = a / (1 + T.exp(-T.dot(x, w) - b))  # Probability that target = 1
+    print "Uses bias: ", bias
+    if bias:
+        p_1 = a / (1 + T.exp(-T.dot(x, w) - b))  # Probability that target = 1
+    else:
+        p_1 = a / (1 + T.exp(-T.dot(x, w)))
     prediction = p_1 > 0.5                    # The prediction thresholded
+    #prediction = p_1
     xent = -y * T.log(p_1) - (1-y) * T.log(1-p_1)  # Cross-entropy loss
-    cost = xent.mean() + 0.01 * (w ** 2).sum()  # The cost to minimize
-    gw, gb, ga = T.grad(cost, [w, b, a])     # Compute the gradient of the cost
-                                          # (we shall return to this in a
-                                          # following section of this tutorial)
-    #print "w derivative: ", pp(gw), "\n"
-    #print "b derivative: ", pp(gb), "\n"
-    #print "a derivative: ", pp(ga)
-    #sys.exit()
-    # Compile
-    train = theano.function(inputs=[x, y],
-                            outputs=[prediction, xent],
-                            updates=((w, w - 0.1 * gw), (b, b - 0.1 * gb),
-                                     (a, a - 0.1 * ga)))
+    if alpha == 0:
+        cost = xent.mean()  # The cost to minimize
+    else:
+        cost = xent.mean() + alpha * ((w ** 2).sum())
+    if bias:
+        gw, gb, ga = T.grad(cost, [w, b, a])
+    else:
+        gw, ga = T.grad(cost, [w, a])  # Compute the gradient of the cost
 
-    predict = theano.function(inputs=[x], outputs=prediction)
+    # Compile
+    if bias:
+        train = theano.function(inputs=[x, y], outputs=[prediction, xent],
+                                updates=((w, w - 0.1 * gw), (b, b - 0.1 * gb),
+                                         (a, a - 0.1 * ga)))
+    else:
+        train = theano.function(inputs=[x, y], outputs=[prediction, xent],
+                                updates=((w, w - 0.1 * gw), (a, a - 0.1 * ga)))
+
+    predict = theano.function(inputs=[x], outputs=p_1)
 
     # Train
     for i in range(training_steps):
@@ -51,17 +71,13 @@ def OptimalNode(x_train, y_train):
 
     print "Optimized Node:"
     print w.get_value(), b.get_value(), a.get_value()
-    print "target values for D:", D[1]
-    print "prediction on D:", predict(D[0])
-    print "error: ", 1.0*sum(D[1]!=predict(D[0])) / len(D[1])
+    #print "target values for D:", D[1]
+    #print "prediction on D:", predict(D[0])
+    #print "error: ", 1.0 * sum(abs(D[1] - predict(D[0]))) / len(D[1])
 
-    return D
-
-# import some data to play with
-iris = datasets.load_iris()
-X = iris.data[:, :3]  # we only take the first two features.
-Y = iris.target
-inds = Y<2
-Y = Y[inds]
-X = X[inds, :]
-Node = OptimalNode(X, Y)
+    Node = {}
+    Node['w'] = w
+    Node['b'] = b
+    Node['a'] = a
+    Node['predict'] = predict
+    return Node
