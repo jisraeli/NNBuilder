@@ -7,7 +7,8 @@ from sklearn import datasets
 
 
 
-def OptimalNode(x_train, y_train, bias=False, n_iter=5, alpha=0.01):
+def OptimalNode(x_train, y_train, Regression=True, Classification=False, 
+                bias=False, n_iter=5, alpha=0.01):
     '''
     inputs
         x_train: training features
@@ -17,34 +18,35 @@ def OptimalNode(x_train, y_train, bias=False, n_iter=5, alpha=0.01):
     outputs
         Node: dictionary with Node parameters an predict method
     '''
-
+    
     rng = numpy.random
 
     feats = len(x_train[0, :])
-    print "shape of x: ", numpy.shape(x_train)
     D = (x_train, y_train)
     training_steps = n_iter
-    print "training steps: ", training_steps
+    #print "training steps: ", training_steps
+    #print "penalty strength: ", alpha
+    #print "Uses bias: ", bias
 
     # Declare Theano symbolic variables
     x = T.matrix("x")
     y = T.vector("y")
     w = theano.shared(rng.randn(feats), name="w")
-    b = theano.shared(0., name="b")
-    a = theano.shared(1., name="a")
-    print "Initialize node as:"
-    print w.get_value(), b.get_value(), a.get_value()
-    print "w is of length: ", len(w.get_value())
+    b = theano.shared(rng.randn(1)[0], name="b")
+    a = theano.shared(1.0, name="a")
+    #print "Initialize node as:"
+    #print w.get_value(), b.get_value(), a.get_value()
 
     # Construct Theano expression graph
-    print "Uses bias: ", bias
     if bias:
         p_1 = a / (1 + T.exp(-T.dot(x, w) - b))  # Probability that target = 1
     else:
         p_1 = a / (1 + T.exp(-T.dot(x, w)))
-    prediction = p_1 > 0.5                    # The prediction thresholded
-    #prediction = p_1
-    xent = -y * T.log(p_1) - (1-y) * T.log(1-p_1)  # Cross-entropy loss
+    prediction = p_1 > 0.5
+    if Classification:
+        xent = -y * T.log(p_1) - (1-y) * T.log(1-p_1)  # Cross-entropy loss
+    elif Regression:
+        xent = 0.5 * (y - p_1)**2
     if alpha == 0:
         cost = xent.mean()  # The cost to minimize
     else:
@@ -69,15 +71,15 @@ def OptimalNode(x_train, y_train, bias=False, n_iter=5, alpha=0.01):
     for i in range(training_steps):
         pred, err = train(D[0], D[1])
 
-    print "Optimized Node:"
-    print w.get_value(), b.get_value(), a.get_value()
+    #print "Optimized Node:"
+    #print w.get_value(), b.get_value(), a.get_value()
     #print "target values for D:", D[1]
     #print "prediction on D:", predict(D[0])
     #print "error: ", 1.0 * sum(abs(D[1] - predict(D[0]))) / len(D[1])
 
     Node = {}
-    Node['w'] = w
-    Node['b'] = b
-    Node['a'] = a
+    Node['w'] = w.get_value()
+    Node['b'] = b.get_value()
+    Node['a'] = a.get_value()
     Node['predict'] = predict
     return Node
