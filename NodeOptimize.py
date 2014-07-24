@@ -3,11 +3,9 @@ import theano
 import sys
 import theano.tensor as T
 from theano import pp
-from sklearn import datasets
 
 
-
-def OptimalNode(x_train, y_train, Regression=True, Classification=False, 
+def OptimalNode(x_train, y_train, Regression=True, Classification=False,
                 bias=False, n_iter=5, alpha=0.01):
     '''
     inputs
@@ -18,7 +16,7 @@ def OptimalNode(x_train, y_train, Regression=True, Classification=False,
     outputs
         Node: dictionary with Node parameters an predict method
     '''
-    
+
     rng = numpy.random
 
     feats = len(x_train[0, :])
@@ -39,7 +37,7 @@ def OptimalNode(x_train, y_train, Regression=True, Classification=False,
 
     # Construct Theano expression graph
     if bias:
-        p_1 = a / (1 + T.exp(-T.dot(x, w) - b))  # Probability that target = 1
+        p_1 = -0.5 + a / (1 + T.exp(-T.dot(x, w) - b))
     else:
         p_1 = a / (1 + T.exp(-T.dot(x, w)))
     prediction = p_1 > 0.5
