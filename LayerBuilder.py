@@ -4,14 +4,16 @@ import sys
 import theano.tensor as T
 from theano import pp
 from sklearn import datasets
-from NodeOptimize import OptimalNode
+from NodeOptimize import OptimalNode, EarlyStopNode
 from sklearn.cross_validation import train_test_split
 from sklearn import preprocessing
 import math
 import IPython
+import timeit
 
 
-def InitLayer(X_train, Y_train, n_iter, alpha, epsilon=1.0):
+def InitLayer(X_train, Y_train, n_iter, alpha, epsilon=1.0, minibatch=False,
+              nodeCV_size=0.1):
     '''
     inputs
         x_train: training features
@@ -23,14 +25,27 @@ def InitLayer(X_train, Y_train, n_iter, alpha, epsilon=1.0):
         Layer: node dictionary containing initial node
     '''
     Layer = {}
-    Node = OptimalNode(X_train, Y_train, bias=True, n_iter=n_iter, alpha=alpha)
+
+    train_validate = train_test_split(X_train, Y_train, test_size=nodeCV_size)
+    x_train, x_validate, y_train, y_validate = train_validate
+
+    Node = OptimalNode(x_train, y_train, bias=True, n_iter=n_iter, alpha=alpha,
+                       minibatch=minibatch)
+
+    #print "----training losses----"
+    #Node = EarlyStopNode(Node, x_train, y_train)
+    #print "----validation losses----"
+    Node = EarlyStopNode(Node, x_validate, y_validate)
+    #sys.exit()
+
     Node['lr'] = epsilon
     Layer['1'] = Node
 
     return Layer
 
 
-def NewNode(Layer, X_train, Y_train, n_iter=5, alpha=0.01, epsilon=1.0):
+def NewNode(Layer, X_train, Y_train, n_iter=5, alpha=0.01, epsilon=1.0,
+            minibatch=False, nodeCV_size=0.1):
     '''
     inputs
         x_train: training features
@@ -47,16 +62,37 @@ def NewNode(Layer, X_train, Y_train, n_iter=5, alpha=0.01, epsilon=1.0):
         predict = node['predict']
         pred += predict(X_train) * node['lr']
     Y_pseudo = Y_train - pred
-    Node = OptimalNode(X_train, Y_pseudo, bias=True, n_iter=n_iter,
-                       alpha=alpha)
+
+    train_validate = train_test_split(X_train, Y_pseudo, test_size=nodeCV_size)
+    x_train, x_validate, y_pseudo, y_pseudo_validate = train_validate
+
+    Node = OptimalNode(x_train, y_pseudo, bias=True, n_iter=n_iter,
+                       alpha=alpha, minibatch=minibatch)
+
+    Node = EarlyStopNode(Node, x_validate, y_pseudo_validate)
+
     Node['lr'] = epsilon
 
     return Node
 
 
-def AddNode(Layer, Node):
-    NodeNumber = len(Layer.keys()) + 1
-    Layer[str(NodeNumber)] = Node
+def AddNode(Layer, Node, X_validate, Y_validate):
+    pred_validate = 0
+    for ind in Layer.keys():
+        node = Layer[ind]
+        predict = node['predict']
+        pred_validate += predict(X_validate) * node['lr']
+    err_before_node = numpy.mean(abs(Y_validate - pred_validate)**2)
+    predict = Node['predict']
+    pred_validate += predict(X_validate) * node['lr']
+    err_after_node = numpy.mean(abs(Y_validate - pred_validate)**2)
+    UsefulNode = False
+    if err_after_node < err_before_node:
+        UsefulNode = True
+        NodeNumber = len(Layer.keys()) + 1
+        Layer[str(NodeNumber)] = Node
+
+    return UsefulNode
 
 
 def CheckLayer(Layer, X_train, Y_train, threshold=-0.01):
@@ -149,40 +185,48 @@ def PrintRates(Layer):
     print lrList
 
 
-def BuildLayer(NumNodes, X_train, Y_train, n_iter, alpha, epsilon=0.01,
-               NodeCorrection=True, BoostDecay=False, UltraBoosting=False,
-               g_tol=0.01, threshold=-0.01):
-    Layer = InitLayer(X_train, Y_train, n_iter, alpha, epsilon=epsilon)
+def BuildLayer(NumNodes, X_train, Y_train, X_validate, Y_validate, n_iter,
+               alpha, epsilon=0.01, NodeCorrection=True, BoostDecay=False,
+               UltraBoosting=False, g_tol=0.01, g_final=0.0000001,
+               threshold=-0.01, minibatch=False, nodeCV_size=0.1):
+    Layer = InitLayer(X_train, Y_train, n_iter, alpha, epsilon=epsilon,
+                      minibatch=minibatch, nodeCV_size=nodeCV_size)
     i = 0
     while i < NumNodes:
         if NodeCorrection:  # check if nodes should be corrected/boosted
-            BoostNodes(Layer=Layer, X_train=X_train, Y_train=Y_train,
+            BoostNodes(Layer=Layer, X_train=X_validate, Y_train=Y_validate,
                        epsilon=epsilon, g_tol=g_tol, threshold=threshold)
             [_, lam, ind], Y_pseudo, _ = CheckLayer(Layer, X_train, Y_train,
                                                     threshold=threshold)
             Node = NewNode(Layer, X_train, Y_train, n_iter=n_iter, alpha=alpha,
-                           epsilon=epsilon)
+                           epsilon=epsilon, minibatch=minibatch,
+                           nodeCV_size=nodeCV_size)
             if EvalNode(Node, X_train, Y_pseudo) > lam:  # > best node?
                 print "adding node number ", i+2
-                AddNode(Layer, Node)
-                i += 1
-                if BoostDecay:
-                    epsilon = epsilon * i / (i+1)
+                UsefulNode = AddNode(Layer, Node, X_validate, Y_validate)
+                print "New Node is Useful: ", UsefulNode
+                if UsefulNode:
+                    i += 1
+                    if BoostDecay:
+                        epsilon = epsilon * i / (i+1)
             else:
                 print "New node after boosting is not good enough!"
                 g_tol = g_tol / 2.0
+                if g_tol < g_final:
+                    break
                 print "reducing g_tol to: ", g_tol
         else:
             print "adding node number ", i+2
             Node = NewNode(Layer, X_train, Y_train, n_iter=n_iter, alpha=alpha,
-                           epsilon=epsilon)
+                           epsilon=epsilon, minibatch=minibatch,
+                           nodeCV_size=nodeCV_size)
             AddNode(Layer, Node)
             print "Layer boost weights :", PrintRates(Layer)
             i += 1
     if NodeCorrection and UltraBoosting:
         print "starting UltraBoosting..."
-        for t in range(2):
-            BoostNodes(Layer=Layer, X_train=X_train, Y_train=Y_train,
+        while g_tol > g_final:
+            BoostNodes(Layer=Layer, X_train=X_validate, Y_train=Y_validate,
                        epsilon=epsilon, g_tol=g_tol, threshold=threshold)
             print "------------Finished Ultra Boost with g_tol="+str(g_tol),
             print "-------------"
@@ -222,3 +266,94 @@ def Postprocess(X, scaler):
         X = numpy.reshape(X, (len(X)))
 
     return X
+
+
+def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
+                    boostCV_size=0.2, nodeCV_size=0.1, NodeCorrection=True,
+                    BoostDecay=False, UltraBoosting=False, g_final=0.0000001,
+                    g_tol=0.01, threshold=-0.01, minibatch=False):
+
+    print "creating training, validation, and testing sets..."
+    train_test = train_test_split(X, Y, test_size=test_size)
+    x_train, X_test, y_train, Y_test = train_test
+    train_validate = train_test_split(x_train, y_train, test_size=boostCV_size)
+    X_train, X_validate, Y_train, Y_validate = train_validate
+
+    print 'fitting scalers...tranforming data...'
+    X_train, X_train_scaler = Preprocess(X_train)
+    X_validate, X_validate_scaler = Preprocess(X_validate)
+    X_test, X_test_scaler = Preprocess(X_test)
+    Y_train, Y_train_scaler = Preprocess(Y_train)
+    Y_validate, Y_validate_scaler = Preprocess(Y_validate)
+    Y_test, Y_test_scaler = Preprocess(Y_test)
+
+    print "initializing layer.."
+    print "building layer..."
+    start = timeit.default_timer()
+    Layer = BuildLayer(NumNodes=NumNodes-1, X_train=X_train, Y_train=Y_train,
+                       X_validate=X_validate, Y_validate=Y_validate,
+                       minibatch=minibatch, n_iter=n_iter, alpha=alpha,
+                       epsilon=epsilon, threshold=threshold,
+                       NodeCorrection=NodeCorrection, BoostDecay=BoostDecay,
+                       UltraBoosting=UltraBoosting)
+    stop = timeit.default_timer()
+
+    print "Layer Building RunTime: ", stop - start
+    print "number of nodes in layer: ", len(Layer.keys())
+
+    pred_train = 0
+    pred_validate = 0
+    pred_test = 0
+    for ind in Layer.keys():
+        node = Layer[ind]
+        predict = node['predict']
+        pred_train += predict(X_train) * node['lr']
+        pred_validate += predict(X_validate) * node['lr']
+        pred_test += predict(X_test) * node['lr']
+
+    print "Running Adabost with LR for comparison..."
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.ensemble import AdaBoostRegressor
+    clf = AdaBoostRegressor(base_estimator=LogisticRegression(), loss='square',
+                            n_estimators=NumNodes)
+    clf.fit(X_train, Y_train)
+    pred_clf = clf.predict(X_test)
+
+    print "Final layer results:"
+
+    Y_train = Postprocess(Y_train, Y_train_scaler)
+    pred_train = Postprocess(pred_train, Y_train_scaler)
+
+    print "Prediction on train data: ", pred_train
+    print "actual train data: ", Y_train
+    print "train error: ", numpy.mean(abs(Y_train - pred_train)**2)
+
+    Y_validate = Postprocess(Y_validate, Y_validate_scaler)
+    pred_validate = Postprocess(pred_validate, Y_validate_scaler)
+
+    print "Prediction on validation data: ", pred_validate
+    print "actual validation data: ", Y_validate
+    print "validation error: ", numpy.mean(abs(Y_validate - pred_validate)**2)
+
+    Y_test = Postprocess(Y_test, Y_test_scaler)
+    pred_test = Postprocess(pred_test, Y_test_scaler)
+
+    print "Prediction on test data: ", pred_test
+    print "actual test data: ", Y_test
+    print "test error: ", numpy.mean(abs(Y_test - pred_test)**2)
+
+    pred_clf = Postprocess(pred_clf, Y_test_scaler)
+
+    err = numpy.mean(abs(pred_clf - Y_test)**2)
+    print "Scikit's Adaboost with LR on transformed data, test error: ", err
+
+    X_train = Postprocess(X_train, X_train_scaler)
+    X_test = Postprocess(X_test, X_test_scaler)
+
+    clf = AdaBoostRegressor(base_estimator=LogisticRegression(), loss='square',
+                            n_estimators=NumNodes)
+    clf.fit(X_train, Y_train)
+    pred_clf = clf.predict(X_test)
+    err = numpy.mean(abs(pred_clf - Y_test)**2)
+    print "Scikit's Adaboost with LR on original data, test error: ", err
+

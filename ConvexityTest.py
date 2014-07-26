@@ -40,7 +40,7 @@ Y_train, Y_train_scaler = Preprocess(Y_train)
 Y_test, Y_test_scaler = Preprocess(Y_test)
 
 K = 1
-iters = 20000
+iters = 2000
 print 'building layer1...'
 Layer1 = BuildLayer(NumNodes=K, X_train=X_train, Y_train=Y_train, n_iter=iters,
                     alpha=0.15, epsilon=0.1, NodeCorrection=False,

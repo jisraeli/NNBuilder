@@ -10,6 +10,8 @@ from sklearn import preprocessing
 import math
 import IPython
 from LayerBuilder import*
+import timeit
+
 
 print "----This Script uses NNBuilder on the Boston house-prices dataset-----"
 
@@ -19,7 +21,15 @@ iris = datasets.load_boston()
 X = iris.data
 Y = iris.target
 
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.25)
+RunLayerBuilder(NumNodes=8, X=X, Y=Y, n_iter=1000, alpha=0.15, epsilon=0.02,
+                test_size=0.3,  boostCV_size=0.2, nodeCV_size=0.1,
+                NodeCorrection=True,    BoostDecay=False, UltraBoosting=False,
+                g_final=0.000001, g_tol=0.01, threshold=-0.01, minibatch=False)
+
+
+
+'''
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3)
 
 print 'fitting scalers...tranforming data...'
 X_train, X_train_scaler = Preprocess(X_train)
@@ -31,9 +41,14 @@ Y_test, Y_test_scaler = Preprocess(Y_test)
 print "initializing layer.."
 K = 7
 print "building layer..."
-Layer = BuildLayer(NumNodes=K, X_train=X_train, Y_train=Y_train, n_iter=20000,
-                   alpha=0.15, epsilon=0.1, NodeCorrection=True,
-                   BoostDecay=True, UltraBoosting=True, threshold=-0.0002)
+start = timeit.default_timer()
+Layer = BuildLayer(NumNodes=K, X_train=X_train, Y_train=Y_train, n_iter=5000,
+                   alpha=0.15, epsilon=0.02, NodeCorrection=True,
+                   BoostDecay=True, UltraBoosting=True, threshold=-0.0002,
+                   minibatch=False)
+stop = timeit.default_timer()
+
+print "Layer Building RunTime: ", stop - start
 print "number of nodes in layer: ", len(Layer.keys())
 
 pred_train = 0
@@ -59,18 +74,18 @@ pred_train = Postprocess(pred_train, Y_train_scaler)
 
 print "Prediction on train data: ", pred_train
 print "actual train data: ", Y_train
-print "train error: ", 1.0 * sum(abs(Y_train-pred_train)**2) / len(Y_train)
+print "train error: ", numpy.mean(abs(Y_train-pred_train)**2)
 
 Y_test = Postprocess(Y_test, Y_test_scaler)
 pred_test = Postprocess(pred_test, Y_test_scaler)
 
 print "Prediction on test data: ", pred_test
 print "actual test data: ", Y_test
-print "test error: ", 1.0 * sum(abs(Y_test-pred_test)**2) / len(Y_test)
+print "test error: ", numpy.mean(abs(Y_test-pred_test)**2)
 
 pred_clf = Postprocess(pred_clf, Y_test_scaler)
 
-err = numpy.mean((pred_clf - Y_test)**2)
+err = numpy.mean(abs(pred_clf - Y_test)**2)
 print "Scikit's Adaboost with LR on transformed data, test error: ", err
 
 X_train = Postprocess(X_train, X_train_scaler)
@@ -80,5 +95,6 @@ clf = AdaBoostRegressor(base_estimator=LogisticRegression(), n_estimators=K+1,
                         loss='square')
 clf.fit(X_train, Y_train)
 pred_clf = clf.predict(X_test)
-err = numpy.mean((pred_clf - Y_test)**2)
+err = numpy.mean(abs(pred_clf - Y_test)**2)
 print "Scikit's Adaboost with LR on original data, test error: ", err
+'''
