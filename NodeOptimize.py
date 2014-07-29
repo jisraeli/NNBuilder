@@ -31,7 +31,7 @@ def OptimalNode(x_train, y_train, Regression=True, Classification=False,
     # Declare Theano symbolic variables
     x = T.matrix("x")
     y = T.vector("y")
-    w = theano.shared(rng.randn(feats), name="w")
+    w = theano.shared(rng.uniform(low=-0.25, high=0.25, size=feats), name="w")
     b = theano.shared(rng.randn(1)[0], name="b")
     a = theano.shared(abs(rng.randn(1)[0]), name="a")
     #print "Initialize node as:"
