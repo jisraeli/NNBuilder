@@ -28,16 +28,16 @@ def InitLayer(X_train, Y_train, X_validate, Y_validate, n_iter, alpha,
     '''
     Layer = {}
 
-    #train_validate = train_test_split(X_train, Y_train, test_size=nodeCV_size)
-    #x_train, x_validate, y_train, y_validate = train_validate
+    train_validate = train_test_split(X_train, Y_train, test_size=nodeCV_size)
+    x_train, x_validate, y_train, y_validate = train_validate
 
-    Node = OptimalNode(X_train, Y_train, bias=True, n_iter=n_iter, alpha=alpha,
+    Node = OptimalNode(x_train, y_train, bias=True, n_iter=n_iter, alpha=alpha,
                        minibatch=minibatch)
 
     #print "----training losses----"
     #Node = EarlyStopNode(Node, x_train, y_train)
     #print "----validation losses----"
-    Node = EarlyStopNode(Node, X_validate, Y_validate)
+    Node = EarlyStopNode(Node, x_validate, y_validate)
     #sys.exit()
 
     Node['lr'] = epsilon
@@ -68,13 +68,13 @@ def NewNode(Layer, X_train, Y_train, X_validate, Y_validate, n_iter=5,
     Y_pseudo = Y_train - pred_train
     Y_pseudo_validate = Y_validate - pred_validate
 
-    #train_validate = train_test_split(X_train, Y_pseudo, test_size=nodeCV_size)
-    #x_train, x_validate, y_pseudo, y_pseudo_validate = train_validate
+    train_validate = train_test_split(X_train, Y_pseudo, test_size=nodeCV_size)
+    x_train, x_validate, y_pseudo, y_pseudo_validate = train_validate
 
-    Node = OptimalNode(X_train, Y_pseudo, bias=True, n_iter=n_iter,
+    Node = OptimalNode(x_train, y_pseudo, bias=True, n_iter=n_iter,
                        alpha=alpha, minibatch=minibatch)
 
-    Node = EarlyStopNode(Node, X_validate, Y_pseudo_validate)
+    Node = EarlyStopNode(Node, x_validate, y_pseudo_validate)
 
     Node['lr'] = epsilon
 
@@ -410,7 +410,8 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
     stop = timeit.default_timer()
 
     print "Layer Building RunTime: ", stop - start
-    print "number of nodes in layer: ", len(Layer.keys())
+    N = len(Layer.keys())
+    print "number of nodes in layer: ", N
 
     pred_train = 0
     pred_validate = 0
@@ -440,24 +441,24 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
     pred_train = Postprocess(pred_train, Y_train_scaler)
     err_train = numpy.mean(abs(Y_train - pred_train)**2)
 
-    print "Prediction on train data: ", pred_train
-    print "actual train data: ", Y_train
+    #print "Prediction on train data: ", pred_train
+    #print "actual train data: ", Y_train
     print "train error: ", err_train
 
     Y_validate = Postprocess(Y_validate, Y_validate_scaler)
     pred_validate = Postprocess(pred_validate, Y_validate_scaler)
     err_validate = numpy.mean(abs(Y_validate - pred_validate)**2)
 
-    print "Prediction on validation data: ", pred_validate
-    print "actual validation data: ", Y_validate
+    #print "Prediction on validation data: ", pred_validate
+    #print "actual validation data: ", Y_validate
     print "validation error: ", err_validate
 
     Y_test = Postprocess(Y_test, Y_test_scaler)
     pred_test = Postprocess(pred_test, Y_validate_scaler)
     err_test = numpy.mean(abs(Y_test - pred_test)**2)
 
-    print "Prediction on test data: ", pred_test
-    print "actual test data: ", Y_test
+    #print "Prediction on test data: ", pred_test
+    #print "actual test data: ", Y_test
     print "test error: ", err_test
 
     pred_clf_t = Postprocess(pred_clf, Y_test_scaler)
@@ -484,4 +485,4 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
     errs = [err_train, err_validate, err_test, err_AB_raw, err_AB_transformed]
     results = [X_test, Y_test, pred_test]
 
-    return [errs, results]
+    return [errs, N]

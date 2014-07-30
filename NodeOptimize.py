@@ -73,7 +73,7 @@ def OptimalNode(x_train, y_train, Regression=True, Classification=False,
     # Train
     for i in range(training_steps):
         if minibatch:
-            batch_split = train_test_split(x_train, y_train, test_size=0.1)
+            batch_split = train_test_split(x_train, y_train, test_size=0.2)
             _, D[0], _, D[1] = batch_split
             pred, err = train(D[0], D[1])
         elif not minibatch:
