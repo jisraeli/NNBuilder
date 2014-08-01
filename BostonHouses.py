@@ -15,18 +15,14 @@ import matplotlib.pyplot as plt
 from math import pi
 from mpl_toolkits.mplot3d import Axes3D
 
-print "----This Script uses NNBuilder on the Boston house-prices dataset-----"
+print "----This Script uses NNBuilder on the Boston/Diabetes dataset-----"
 
 # import some data to play with
 
-iris = datasets.load_boston()
-#X = iris.data[:, [10, 12]]
+#iris = datasets.load_boston()
+iris = datasets.load_diabetes()
 X = iris.data
 Y = iris.target
-#X = np.random.uniform(-1.0, 1.0, [1000, 1])
-#Y = np.sin(X)
-#Y = X**2
-#Y = np.reshape(Y, [1000])
 '''
 data = RunLayerBuilder(NumNodes=10, X=X, Y=Y, n_iter=1320, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
@@ -53,14 +49,15 @@ err_LB_list = []
 err_SVM_lin_list = []
 err_SVM_rbf_list = []
 for i in range(5):
-    result, N = RunLayerBuilder(NumNodes=10, X=X, Y=Y, n_iter=5000, alpha=0.0,
+    [errs, results,
+        N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
                              nodeCV_size=0.18, BoostDecay=True,
                              g_final=0.000001, g_tol=0.2, minibatch=True,
                              SymmetricLabels=False)
 
     [err_train, err_validate, err_test,
-        err_AB, err_LB, err_SVM_lin, err_SVM_rbf] = result
+        err_AB, err_LB, err_SVM_lin, err_SVM_rbf] = errs
     err_train_list.append(err_train)
     err_validate_list.append(err_validate)
     err_test_list.append(err_test)
@@ -106,78 +103,7 @@ plt.setp(bp['whiskers'], color='black')
 plt.setp(bp['fliers'], color='red', marker='+')
 xtickNames = plt.setp(ax1, xticklabels=np.repeat(dataNames, 1))
 plt.setp(xtickNames, rotation=15, fontsize=8)
-plt.title('Boston Dataset, All features, No EarlyStopping, '
-          + str(trials) + ' attempts')
+plt.title('Diabetes All features, EarlyStopping w Shuffled Validation, '
+          + str(trials) + ' reps')
+plt.ylabel('Avg Sqaure Error (Output Range: 25-346)')
 plt.show()
-
-
-'''
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3)
-
-print 'fitting scalers...tranforming data...'
-X_train, X_train_scaler = Preprocess(X_train)
-X_test, X_test_scaler = Preprocess(X_test)
-Y_train, Y_train_scaler = Preprocess(Y_train)
-Y_test, Y_test_scaler = Preprocess(Y_test)
-
-
-print "initializing layer.."
-K = 7
-print "building layer..."
-start = timeit.default_timer()
-Layer = BuildLayer(NumNodes=K, X_train=X_train, Y_train=Y_train, n_iter=5000,
-                   alpha=0.15, epsilon=0.02, NodeCorrection=True,
-                   BoostDecay=True, UltraBoosting=True, threshold=-0.0002,
-                   minibatch=False)
-stop = timeit.default_timer()
-
-print "Layer Building RunTime: ", stop - start
-print "number of nodes in layer: ", len(Layer.keys())
-
-pred_train = 0
-pred_test = 0
-for ind in Layer.keys():
-    node = Layer[ind]
-    predict = node['predict']
-    pred_train += predict(X_train) * node['lr']
-    pred_test += predict(X_test) * node['lr']
-
-print "Running Adabost with LR for comparison..."
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import AdaBoostRegressor
-clf = AdaBoostRegressor(base_estimator=LogisticRegression(), n_estimators=K+1,
-                        loss='square')
-clf.fit(X_train, Y_train)
-pred_clf = clf.predict(X_test)
-
-print "Final layer results:"
-
-Y_train = Postprocess(Y_train, Y_train_scaler)
-pred_train = Postprocess(pred_train, Y_train_scaler)
-
-print "Prediction on train data: ", pred_train
-print "actual train data: ", Y_train
-print "train error: ", numpy.mean(abs(Y_train-pred_train)**2)
-
-Y_test = Postprocess(Y_test, Y_test_scaler)
-pred_test = Postprocess(pred_test, Y_test_scaler)
-
-print "Prediction on test data: ", pred_test
-print "actual test data: ", Y_test
-print "test error: ", numpy.mean(abs(Y_test-pred_test)**2)
-
-pred_clf = Postprocess(pred_clf, Y_test_scaler)
-
-err = numpy.mean(abs(pred_clf - Y_test)**2)
-print "Scikit's Adaboost with LR on transformed data, test error: ", err
-
-X_train = Postprocess(X_train, X_train_scaler)
-X_test = Postprocess(X_test, X_test_scaler)
-
-clf = AdaBoostRegressor(base_estimator=LogisticRegression(), n_estimators=K+1,
-                        loss='square')
-clf.fit(X_train, Y_train)
-pred_clf = clf.predict(X_test)
-err = numpy.mean(abs(pred_clf - Y_test)**2)
-print "Scikit's Adaboost with LR on original data, test error: ", err
-'''

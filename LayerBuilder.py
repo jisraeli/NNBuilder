@@ -27,7 +27,6 @@ def InitLayer(X_train_node, Y_train_node, X_validate_node, Y_validate_node,
         Layer: node dictionary containing initial node
     '''
     Layer = {}
-    
     Node = OptimalNode(X_train_node, Y_train_node, bias=True, n_iter=n_iter,
                        alpha=alpha, minibatch=minibatch)
     Node = EarlyStopNode(Node, X_validate_node, Y_validate_node)
@@ -329,6 +328,11 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
     train_validate = train_test_split(x_train, y_train, test_size=boostCV_size)
     X_train, X_validate_layer, Y_train, Y_validate_layer = train_validate
 
+    print 'Running Gaussian SVM...'
+    from sklearn.svm import SVR
+    SVM_rbf = SVR(kernel='rbf')
+    SVM_rbf.fit(X_train, Y_train)
+
     print 'Running Basic Layer Builder...'
     start = timeit.default_timer()
     Layer = BuildLayer(NumNodes=NumNodes-1, X_train=X_train, Y_train=Y_train,
@@ -374,7 +378,6 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
     err_validate = numpy.mean(abs(Y_validate_layer - pred_validate)**2)
     print "validation error: ", err_validate
 
-    #Y_test = Postprocess(Y_test, y_train_scaler)
     pred_test = Postprocess(pred_test, y_train_scaler)
     err_test = numpy.mean(abs(Y_test - pred_test)**2)
     print "test error: ", err_test
@@ -386,23 +389,21 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
 
     print "Running Adabost, SVM, and LogisticRegression for comparison..."
     from sklearn.linear_model import LogisticRegression
-    from sklearn.svm import SVR
     from sklearn.ensemble import AdaBoostRegressor
     AB = AdaBoostRegressor(loss='square', n_estimators=NumNodes)
     LB = AdaBoostRegressor(base_estimator=LogisticRegression(), loss='square',
                            n_estimators=NumNodes)
     SVM_lin = SVR(kernel='linear')
-    SVM_rbf = SVR(kernel='rbf')
 
     AB.fit(X_train, Y_train)
     LB.fit(X_train, Y_train)
     SVM_lin.fit(X_train, Y_train)
-    SVM_rbf.fit(X_train, Y_train)
 
     err_AB = numpy.mean(abs(AB.predict(X_test) - Y_test)**2)
     err_LB = numpy.mean(abs(LB.predict(X_test) - Y_test)**2)
     err_SVM_lin = numpy.mean(abs(SVM_lin.predict(X_test) - Y_test)**2)
-    err_SVM_rbf = numpy.mean(abs(SVM_rbf.predict(X_test) - Y_test)**2)
+    err_SVM_rbf = numpy.mean(abs(Postprocess(SVM_rbf.predict(X_test),
+                                 y_train_scaler) - Y_test)**2)
 
     print "Scikit's Adaboost on original data, test error: ", err_AB
     print "Scikit's LB on original data, test error: ", err_LB
@@ -411,6 +412,6 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
 
     errs = [err_train, err_validate, err_test,
             err_AB, err_LB, err_SVM_lin, err_SVM_rbf]
-    #results = [X_test, Y_test, pred_test]
+    results = [X_test, Y_test, pred_test]
 
-    return [errs, N]
+    return [errs, results, N]
