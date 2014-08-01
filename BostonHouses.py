@@ -13,71 +13,101 @@ from LayerBuilder import*
 import timeit
 import matplotlib.pyplot as plt
 from math import pi
+from mpl_toolkits.mplot3d import Axes3D
 
 print "----This Script uses NNBuilder on the Boston house-prices dataset-----"
 
 # import some data to play with
 
 iris = datasets.load_boston()
-X = iris.data[:, -1:]
+#X = iris.data[:, [10, 12]]
+X = iris.data
 Y = iris.target
 #X = np.random.uniform(-1.0, 1.0, [1000, 1])
 #Y = np.sin(X)
 #Y = X**2
 #Y = np.reshape(Y, [1000])
 '''
-data = RunLayerBuilder(NumNodes=6, X=X, Y=Y, n_iter=1320, alpha=0.0,
-                             epsilon=0.2, test_size=0.25,  boostCV_size=0.15,
-                             nodeCV_size=0.1, NodeCorrection=True,
-                             BoostDecay=True, UltraBoosting=True,
+data = RunLayerBuilder(NumNodes=10, X=X, Y=Y, n_iter=1320, alpha=0.0,
+                             epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
+                             nodeCV_size=0.1, BoostDecay=True,
                              g_final=0.000001, g_tol=0.2, minibatch=True,
                              SymmetricLabels=False)
-'''
-#errs, results = data
-#X_test, Y_test, pred_clf_raw = results
-#plt.scatter(X_test, Y_test)
-#plt.scatter(X_test, pred_clf_raw, color='red')
-#plt.show()
 
+errs, results = data
+X_test, Y_test, pred_clf_raw = results
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(X_test[:, 0], X_test[:, 1], Y_test)
+ax.scatter(X_test[:, 0], X_test[:, 1], pred_clf_raw, color='red')
+plt.show()
+sys.exit()
+'''
+
+NodeNum_Err = {}
 err_train_list = []
 err_validate_list = []
 err_test_list = []
 err_AB_list = []
-err_AB_t_list = []
-for i in range(10):
-    result, N = RunLayerBuilder(NumNodes=3, X=X, Y=Y, n_iter=6000, alpha=0.15,
-                             epsilon=0.2, test_size=0.25,  boostCV_size=0.15,
-                             nodeCV_size=0.2, NodeCorrection=True,
-                             BoostDecay=True, UltraBoosting=True,
+err_LB_list = []
+err_SVM_lin_list = []
+err_SVM_rbf_list = []
+for i in range(5):
+    result, N = RunLayerBuilder(NumNodes=10, X=X, Y=Y, n_iter=5000, alpha=0.0,
+                             epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
+                             nodeCV_size=0.18, BoostDecay=True,
                              g_final=0.000001, g_tol=0.2, minibatch=True,
-                             SymmetricLabels=True)
-    if N==3:
-        [err_train, err_validate, err_test, err_AB, err_AB_t] = result
-        err_train_list.append(err_train)
-        err_validate_list.append(err_validate)
-        err_test_list.append(err_test)
-        err_AB_list.append(err_AB)
-        err_AB_t_list.append(err_AB_t)
+                             SymmetricLabels=False)
+
+    [err_train, err_validate, err_test,
+        err_AB, err_LB, err_SVM_lin, err_SVM_rbf] = result
+    err_train_list.append(err_train)
+    err_validate_list.append(err_validate)
+    err_test_list.append(err_test)
+    err_AB_list.append(err_AB)
+    err_LB_list.append(err_LB)
+    err_SVM_lin_list.append(err_SVM_lin)
+    err_SVM_rbf_list.append(err_SVM_rbf)
+
+    if str(N) in NodeNum_Err.keys():
+        NodeNum_Err[str(N)]['count'] += 1.0
+        NodeNum_Err[str(N)]['TotalErr'] += err_test
+    else:
+        NodeNum_Err[str(N)] = {}
+        NodeNum_Err[str(N)]['count'] = 1.0
+        NodeNum_Err[str(N)]['TotalErr'] = err_test
+
+print '#ofNodes #ofModels AvgTestError'
+keys = NodeNum_Err.keys()
+keys.sort()
+for NumNodes in keys:
+    count = NodeNum_Err[NumNodes]['count']
+    TotalErr = NodeNum_Err[NumNodes]['TotalErr']
+    print NumNodes, count, TotalErr / count
+
 trials = len(err_train_list)
 err_train_list = np.asarray(err_train_list)
 err_validate_list = np.asarray(err_validate_list)
 err_test_list = np.asarray(err_test_list)
 err_AB_list = np.asarray(err_AB_list)
-err_AB_t_list = np.asarray(err_AB_t_list)
+err_LB_list = np.asarray(err_LB_list)
+err_SVM_lin_list = np.asarray(err_SVM_lin_list)
+err_SVM_rbf_list = np.asarray(err_SVM_rbf_list)
 
 print 'plotting results...'
 fig, ax1 = plt.subplots(figsize=(10, 6))
 data = [err_train_list, err_validate_list, err_test_list,
-        err_AB_list, err_AB_t_list]
-dataNames = ['training', 'validation', 'testing', 'Raw AdaBoost',
-             'Transformed AdaBoost']
-bp = plt.boxplot(data, notch=0, sym='+', vert=1, whis=1.5)
+        err_AB_list,  err_LB_list, err_SVM_lin_list, err_SVM_rbf_list]
+dataNames = ['training', 'validation', 'testing', 'AdaBoost', 'LogitBoost',
+             'Linear SVM', 'Gaussian SVM']
+bp = plt.boxplot(data, notch=1, sym='+', vert=1, whis=1.5)
 plt.setp(bp['boxes'], color='black')
 plt.setp(bp['whiskers'], color='black')
 plt.setp(bp['fliers'], color='red', marker='+')
 xtickNames = plt.setp(ax1, xticklabels=np.repeat(dataNames, 1))
 plt.setp(xtickNames, rotation=15, fontsize=8)
-plt.title('Only positive features, with early stopping and validation shuffling, N='+str(trials))
+plt.title('Boston Dataset, All features, No EarlyStopping, '
+          + str(trials) + ' attempts')
 plt.show()
 
 
