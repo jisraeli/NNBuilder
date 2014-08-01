@@ -24,6 +24,8 @@ iris = datasets.load_diabetes()
 X = iris.data
 Y = iris.target
 '''
+# This code block runs the algorithm once,
+# then makes 3D plot of the test data and predictions
 data = RunLayerBuilder(NumNodes=20, X=X, Y=Y, n_iter=5000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
                              nodeCV_size=0.1, BoostDecay=True,
@@ -40,6 +42,9 @@ plt.show()
 sys.exit()
 '''
 
+# This code block runs the algorithm 5 times, then makes nothced boxplot of
+# performance of the algorithm and the best out-of-the-box algorithms on
+# scikit, including AdaBoost, LogitBoost, and linear/nonlinear SVM
 NodeNum_Err = {}
 err_train_list = []
 err_validate_list = []
