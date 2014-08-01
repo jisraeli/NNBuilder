@@ -24,13 +24,13 @@ iris = datasets.load_diabetes()
 X = iris.data
 Y = iris.target
 '''
-data = RunLayerBuilder(NumNodes=10, X=X, Y=Y, n_iter=1320, alpha=0.0,
+data = RunLayerBuilder(NumNodes=20, X=X, Y=Y, n_iter=5000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
                              nodeCV_size=0.1, BoostDecay=True,
                              g_final=0.000001, g_tol=0.2, minibatch=True,
                              SymmetricLabels=False)
 
-errs, results = data
+errs, N, results = data
 X_test, Y_test, pred_clf_raw = results
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
