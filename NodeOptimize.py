@@ -106,6 +106,7 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
     rng = numpy.random
 
     feats = len(x_train[0, :])
+    N = len(x_train[:, 0])
     D = [x_train, y_train]
     training_steps = n_iter
     #print "training steps: ", training_steps
@@ -118,14 +119,16 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
     w = theano.shared(rng.uniform(low=-0.25, high=0.25, size=feats), name="w")
     b = theano.shared(abs(rng.randn(1)[0]), name="b")
     a = theano.shared(abs(rng.randn(1)[0]), name="a")
+    rep = theano.shared(numpy.asarray([1]*N), name="rep")
     #print "Initialize node as:"
     #print w.get_value(), b.get_value(), a.get_value()
 
     # Construct Theano expression graph
+    W = T.outer(rep, w)
     if bias:
         p_1 = a * T.exp(-0.5 / (b**2) * T.dot((x - w).T, (x - w)))
     else:
-        p_1 = a * T.exp(-0.5 / (1**2) * T.dot((x - w).T, (x - w)))
+        p_1 = a * T.exp(-0.5 / (1**2) * T.diagonal(T.dot((x - W), (x - W).T)))
     prediction = p_1 > 0.5
     if Regression:
         xent = 0.5 * (y - p_1)**2
@@ -157,7 +160,9 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
         if minibatch:
             batch_split = train_test_split(x_train, y_train, test_size=0.2)
             _, D[0], _, D[1] = batch_split
+            #IPython.embed()
             pred, err = train(D[0], D[1])
+
         elif not minibatch:
             pred, err = train(D[0], D[1])
         NodePath[str(i)] = {}
@@ -171,9 +176,6 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
     Node['predict'] = predict
 
     return Node
-
-
-
 
 
 def EarlyStopNode(Node, x_validate, y_validate):
