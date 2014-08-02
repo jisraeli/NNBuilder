@@ -15,23 +15,59 @@ import matplotlib.pyplot as plt
 from math import pi
 from mpl_toolkits.mplot3d import Axes3D
 
+'''
+The Main function call is to RunLayerBuilder which calls everything else.
+Here's a quick summary of RunLayerBuilder:
+
+RunLayerBuilder will build a layer consisting of sigmoidal nodes
+    and will stop building the layer when it sees that additional nodes
+    start overfitting the data.
+    It returns [errs, results, N] where N is the number of nodes in the layer,
+    results is [X_test, Y_test, pred_test], testing data, testing labels, and
+    testing predictions, and errs is [err_train, err_validate, err_test]
+    which are the training, validation, and test errors.
+    Also, it will run scikit's AdaBoost, LogitBoost, and SVMs on the same
+    data and print their errors.
+
+A summary of the options in the call to RunLayerBuilder:
+    NumNodes: algorithm will be forced to quit if it reaches this number of
+              nodes, make it big because it will know when to quit on its own
+    X: feature data
+    Y: target variable data
+    n_iter: number of steps in optimization (EarlyStop will happen by default)
+    alpha: strength of L2 regularization in optimization of each node
+    epsilon: "shrinkage" factor, make it 1.0 for optimal performance
+    test_size: fraction of data in test set
+    boostCV_size: fraction of data in validation set
+    nodeCV_size: fraction of data used for early stopping
+    BoostDecay: useless parameter, for future implementation
+    Validation: validation straegy, it's not clear yet which leads to optimal
+                performance. Supported options are "Shuffled" and "Uniform"
+    minibatch: gradient descent option. False means full gradient descent
+               optimization, True means minibatch gradient descent optimization
+               using 10 percent of the data in each batch.
+    SymmetricLabels: True will symmetrize the features. Turn this on if you
+                     know for certain that Y values are symmetric about the
+                     features (for example Y=X^2)
+'''
+
 print "----This Script uses NNBuilder on the Boston/Diabetes dataset-----"
 
 # import some data to play with
 
-#iris = datasets.load_boston()
-iris = datasets.load_diabetes()
+iris = datasets.load_boston()
+#iris = datasets.load_diabetes()
 X = iris.data
 Y = iris.target
-'''
+
 # This code block runs the algorithm once,
 # then makes 3D plot of the test data and predictions
-data = RunLayerBuilder(NumNodes=20, X=X, Y=Y, n_iter=5000, alpha=0.0,
-                             epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
-                             nodeCV_size=0.1, BoostDecay=True,
-                             g_final=0.000001, g_tol=0.2, minibatch=True,
-                             SymmetricLabels=False)
-
+data = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
+                       epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
+                       nodeCV_size=0.18, Validation='Shuffled',
+                       minibatch=True, SymmetricLabels=False)
+sys.exit()
+'''
 errs, N, results = data
 X_test, Y_test, pred_clf_raw = results
 fig = plt.figure()
@@ -57,9 +93,8 @@ for i in range(5):
     [errs, results,
         N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
-                             nodeCV_size=0.18, BoostDecay=True,
-                             g_final=0.000001, g_tol=0.2, minibatch=True,
-                             SymmetricLabels=False)
+                             nodeCV_size=0.18, Validation='Shuffled',
+                             minibatch=True, SymmetricLabels=False)
 
     [err_train, err_validate, err_test,
         err_AB, err_LB, err_SVM_lin, err_SVM_rbf] = errs
