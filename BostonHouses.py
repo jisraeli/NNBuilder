@@ -4,7 +4,6 @@ import sys
 import theano.tensor as T
 from theano import pp
 from sklearn import datasets
-from NodeOptimize import OptimalNode
 from sklearn.cross_validation import train_test_split
 from sklearn import preprocessing
 import math
@@ -62,18 +61,19 @@ Y = iris.target
 
 # This code block runs the algorithm once,
 # then makes 3D plot of the test data and predictions
+'''
 data = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
                        epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
-                       nodeCV_size=0.18, Validation='Shuffled',
-                       minibatch=True, SymmetricLabels=False)
-sys.exit()
-'''
-errs, N, results = data
+                       nodeCV_size=0.18, Validation='Uniform',
+                       minibatch=False, SymmetricLabels=False,
+                       TypeList=['Gaussian', 'Sigmoid'])
+errs, results, N = data
 X_test, Y_test, pred_clf_raw = results
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(X_test[:, 0], X_test[:, 1], Y_test)
 ax.scatter(X_test[:, 0], X_test[:, 1], pred_clf_raw, color='red')
+plt.title('Gaussian Nodes follow by Sigmoid Nodes')
 plt.show()
 sys.exit()
 '''
@@ -89,12 +89,13 @@ err_AB_list = []
 err_LB_list = []
 err_SVM_lin_list = []
 err_SVM_rbf_list = []
-for i in range(5):
+for i in range(20):
     [errs, results,
         N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
                              nodeCV_size=0.18, Validation='Shuffled',
-                             minibatch=True, SymmetricLabels=False)
+                             minibatch=True, SymmetricLabels=False,
+                             TypeList=['Sigmoid'])
 
     [err_train, err_validate, err_test,
         err_AB, err_LB, err_SVM_lin, err_SVM_rbf] = errs

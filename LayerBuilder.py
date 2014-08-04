@@ -4,7 +4,7 @@ import sys
 import theano.tensor as T
 from theano import pp
 from sklearn import datasets
-from NodeOptimize import OptimalNode, EarlyStopNode, OptimalGaussian
+from NodeOptimize import OptimalSigmoid, EarlyStopNode, OptimalGaussian
 from sklearn.cross_validation import train_test_split
 from sklearn import preprocessing
 import math
@@ -15,7 +15,8 @@ from copy import deepcopy
 
 
 def InitLayer(X_train_node, Y_train_node, X_validate_node, Y_validate_node,
-              n_iter, alpha, epsilon=1.0, minibatch=False, nodeCV_size=0.1):
+              n_iter, alpha, epsilon=1.0, minibatch=False, nodeCV_size=0.1,
+              NodeType='Sigmoid'):
     '''
     inputs
         x_train: training features
@@ -27,10 +28,17 @@ def InitLayer(X_train_node, Y_train_node, X_validate_node, Y_validate_node,
         Layer: node dictionary containing initial node
     '''
     Layer = {}
-    Node = OptimalNode(X_train_node, Y_train_node, bias=True, n_iter=n_iter,
-                       alpha=alpha, minibatch=minibatch)
-    #Node = OptimalGaussian(X_train_node, Y_train_node, bias=False,
-    #                       n_iter=n_iter, alpha=alpha, minibatch=minibatch)
+    if NodeType=='Sigmoid':
+        Node = OptimalSigmoid(X_train_node, Y_train_node, bias=True,
+                              n_iter=n_iter, alpha=alpha, minibatch=minibatch)
+    elif NodeType=='Gaussian':
+        Node = OptimalGaussian(X_train_node, Y_train_node, bias=True,
+                               n_iter=n_iter, alpha=alpha, minibatch=minibatch)
+    else:
+        print 'Node type: ', NodeType, 'is Invalid'
+        print 'Supported nodes: Sigmoid, Gaussian'
+        print 'Exiting!'
+        sys.exit()
     Node = EarlyStopNode(Node, X_validate_node, Y_validate_node)
 
     Node['lr'] = epsilon
@@ -41,7 +49,7 @@ def InitLayer(X_train_node, Y_train_node, X_validate_node, Y_validate_node,
 
 def NewNode(Layer, X_train_node, Y_train_node, X_validate_node,
             Y_validate_node, n_iter=5, alpha=0.01, epsilon=1.0,
-            minibatch=False):
+            minibatch=False, NodeType='Sigmoid'):
     '''
     inputs
         x_train: training features
@@ -62,10 +70,17 @@ def NewNode(Layer, X_train_node, Y_train_node, X_validate_node,
     Y_pseudo = Y_train_node - pred_train
     y_pseudo_validate = Y_validate_node - pred_validate
 
-    Node = OptimalNode(X_train_node, Y_pseudo, bias=True, n_iter=n_iter,
-                       alpha=alpha, minibatch=minibatch)
-    #Node = OptimalGaussian(X_train_node, Y_pseudo, bias=False, n_iter=n_iter,
-    #                       alpha=alpha, minibatch=minibatch)
+    if NodeType=='Sigmoid':
+        Node = OptimalSigmoid(X_train_node, Y_pseudo, bias=True, n_iter=n_iter,
+                              alpha=alpha, minibatch=minibatch)
+    elif NodeType=='Gaussian':
+        Node = OptimalGaussian(X_train_node, Y_pseudo, bias=True,
+                               n_iter=n_iter, alpha=alpha, minibatch=minibatch)
+    else:
+        print 'Node type: ', NodeType, 'is Invalid'
+        print 'Supported nodes: Sigmoid, Gaussian'
+        print 'Exiting!'
+        sys.exit()
     Node = EarlyStopNode(Node, X_validate_node, y_pseudo_validate)
     Node['lr'] = epsilon
 
@@ -208,7 +223,7 @@ def PrintRates(Layer):
 
 def BuildLayer(NumNodes, X_train, Y_train, X_validate_layer, Y_validate_layer,
                n_iter, alpha, epsilon=1.0, Validation='Uniform',
-               minibatch=False, nodeCV_size=0.1):
+               minibatch=False, nodeCV_size=0.1, TypeList=['Sigmoid']):
     '''
     Builds a Layer by optimizing new nodes and adding them if they are useful.
     Here's how it works:
@@ -247,30 +262,35 @@ def BuildLayer(NumNodes, X_train, Y_train, X_validate_layer, Y_validate_layer,
     Layer = InitLayer(X_train_node=X_train_node, Y_train_node=Y_train_node,
                       X_validate_node=X_validate_node,
                       Y_validate_node=Y_validate_node, n_iter=n_iter,
-                      alpha=alpha, epsilon=epsilon, minibatch=minibatch)
+                      alpha=alpha, epsilon=epsilon, minibatch=minibatch,
+                      NodeType=TypeList[0])
     i = 0
-    while i < NumNodes:
-        if Validation=='Shuffled':
-            train_validate = train_test_split(X_train, Y_train,
-                                              test_size=nodeCV_size)
-            [X_train_node, X_validate_node,
-                Y_train_node, Y_validate_node] = train_validate
-        print 'Optimizing New Node...'
-        Node = NewNode(Layer=Layer, X_train_node=X_train_node,
-                       Y_train_node=Y_train_node,
-                       X_validate_node=X_validate_node,
-                       Y_validate_node=Y_validate_node, n_iter=n_iter,
-                       alpha=alpha, epsilon=epsilon, minibatch=minibatch)
-        AddNode = UsefulNode(Layer=Layer, NewNode=Node,
-                             X_validate_layer=X_validate_layer,
-                             Y_validate_layer=Y_validate_layer)
-        if AddNode:
-            print 'Adding Node: ', i+2
-            ExtendLayer(Layer=Layer, NewNode=Node)
-            i += 1
-        else:
-            print 'New Node increases validation error - Terminating Layer!'
-            break
+    for nodetype in TypeList:
+        print "boosting nodes of type: ", nodetype
+        while i < NumNodes:
+            if Validation=='Shuffled':
+                train_validate = train_test_split(X_train, Y_train,
+                                                  test_size=nodeCV_size)
+                [X_train_node, X_validate_node,
+                    Y_train_node, Y_validate_node] = train_validate
+            print 'Optimizing New Node...'
+            Node = NewNode(Layer=Layer, X_train_node=X_train_node,
+                           Y_train_node=Y_train_node,
+                           X_validate_node=X_validate_node,
+                           Y_validate_node=Y_validate_node, n_iter=n_iter,
+                           alpha=alpha, epsilon=epsilon, minibatch=minibatch,
+                           NodeType=nodetype)
+            AddNode = UsefulNode(Layer=Layer, NewNode=Node,
+                                 X_validate_layer=X_validate_layer,
+                                 Y_validate_layer=Y_validate_layer)
+            if AddNode:
+                print 'Adding Node: ', i+2
+                ExtendLayer(Layer=Layer, NewNode=Node)
+                i += 1
+            else:
+                print 'New Node increases validation error. Terminating Layer!'
+                break
+        print "Finishished boosting nodes of type: ", nodetype, "!"
 
     return Layer
 
@@ -328,7 +348,8 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
                     boostCV_size=0.2, nodeCV_size=0.1,
                     BoostDecay=False, UltraBoosting=False, g_final=0.0000001,
                     g_tol=0.01, threshold=-0.01, minibatch=False,
-                    Validation='Shuffled', SymmetricLabels=False):
+                    Validation='Shuffled', SymmetricLabels=False,
+                    TypeList=['Sigmoid']):
 
     print "creating training, validation, and testing sets..."
     train_test = train_test_split(X, Y, test_size=test_size)
@@ -357,7 +378,8 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
                        Y_validate_layer=Y_validate_layer,
                        n_iter=n_iter, alpha=alpha, epsilon=epsilon,
                        minibatch=minibatch,
-                       Validation=Validation, nodeCV_size=0.1)
+                       Validation=Validation, nodeCV_size=0.1,
+                       TypeList=TypeList)
     stop = timeit.default_timer()
 
     print "Layer Building RunTime: ", stop - start

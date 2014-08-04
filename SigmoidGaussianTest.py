@@ -4,7 +4,6 @@ import sys
 import theano.tensor as T
 from theano import pp
 from sklearn import datasets
-from NodeOptimize import OptimalNode
 from sklearn.cross_validation import train_test_split
 from sklearn import preprocessing
 import math
@@ -37,12 +36,13 @@ err_test_shuffled_list = []
 err_train_uniform_list = []
 err_validate_uniform_list = []
 err_test_uniform_list = []
-for i in range(10):
+for i in range(20):
     [errs_shuffled, results,
-        N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
+        N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=2000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
-                             nodeCV_size=0.18, Validation='Shuffled',
-                             minibatch=True, SymmetricLabels=False)
+                             nodeCV_size=0.18, Validation='Uniform',
+                             minibatch=False, SymmetricLabels=False,
+                             TypeList=['Sigmoid'])
     [err_train_shuffled, err_validate_shuffled,
         err_test_shuffled]= errs_shuffled
     err_train_shuffled_list.append(err_train_shuffled)
@@ -50,10 +50,11 @@ for i in range(10):
     err_test_shuffled_list.append(err_test_shuffled)
 
     [errs_uniform, results,
-        N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
+        N] = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=2000, alpha=0.0,
                              epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
                              nodeCV_size=0.18, Validation='Uniform',
-                             minibatch=True, SymmetricLabels=False)
+                             minibatch=False, SymmetricLabels=False,
+                             TypeList=['Sigmoid', 'Gaussian'])
     [err_train_uniform, err_validate_uniform,
         err_test_uniform]= errs_uniform
     err_train_uniform_list.append(err_train_uniform)
@@ -71,15 +72,15 @@ data = [err_train_shuffled_list, err_validate_shuffled_list,
         err_test_shuffled_list,
         err_train_uniform_list, err_validate_uniform_list,
         err_test_uniform_list]
-dataNames = ['training_shuffled', 'validation_shuffled', 'testing_shuffled',
-             'training_uniform', 'validation_uniform', 'testing_uniform']
+dataNames = ['training_Sigmoid', 'validation_Sigmoid', 'testing_Sigmoid',
+             'training_S+G', 'validation_S+G', 'testing_S+G']
 bp = plt.boxplot(data, notch=1, sym='+', vert=1, whis=1.5)
 plt.setp(bp['boxes'], color='black')
 plt.setp(bp['whiskers'], color='black')
 plt.setp(bp['fliers'], color='red', marker='+')
 xtickNames = plt.setp(ax1, xticklabels=np.repeat(dataNames, 1))
 plt.setp(xtickNames, rotation=15, fontsize=8)
-plt.title('Diabetes All features, Shuffled vs. Uniform Validation, '
+plt.title('Diabetes, Unif Valid., Sigmoid+varGaussian+, '
           + str(trials) + ' reps')
 plt.ylabel('Avg Sqaure Error (Output Range: 25-346)')
 plt.show()

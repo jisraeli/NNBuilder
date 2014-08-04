@@ -7,8 +7,8 @@ from sklearn.cross_validation import train_test_split
 import IPython
 
 
-def OptimalNode(x_train, y_train, Regression=True, Classification=False,
-                bias=False, n_iter=5, alpha=0.01, minibatch=False):
+def OptimalSigmoid(x_train, y_train, Regression=True, Classification=False,
+                   bias=False, n_iter=5, alpha=0.01, minibatch=False):
     '''
     inputs
         x_train: training features
@@ -39,7 +39,8 @@ def OptimalNode(x_train, y_train, Regression=True, Classification=False,
 
     # Construct Theano expression graph
     if bias:
-        p_1 = -0.5 + a / (1 + T.exp(-T.dot(x, w) - b))
+        #p_1 = -0.5 + a / (1 + T.exp(-T.dot(x, w) - b))
+        p_1 = -0.5 * a + a / (1 + T.exp(-T.dot(x, w) - b))
     else:
         p_1 = a / (1 + T.exp(-T.dot(x, w)))
     prediction = p_1 > 0.5
@@ -106,7 +107,6 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
     rng = numpy.random
 
     feats = len(x_train[0, :])
-    N = len(x_train[:, 0])
     D = [x_train, y_train]
     training_steps = n_iter
     #print "training steps: ", training_steps
@@ -117,16 +117,15 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
     x = T.matrix("x")
     y = T.vector("y")
     w = theano.shared(rng.uniform(low=-0.25, high=0.25, size=feats), name="w")
-    b = theano.shared(abs(rng.randn(1)[0]), name="b")
+    b = theano.shared(1.0, name="b")
     a = theano.shared(abs(rng.randn(1)[0]), name="a")
-    rep = theano.shared(numpy.asarray([1]*N), name="rep")
-    #print "Initialize node as:"
-    #print w.get_value(), b.get_value(), a.get_value()
+    rep = T.vector("rep")
+    rep = x[:, 0] / x[:, 0]
 
     # Construct Theano expression graph
     W = T.outer(rep, w)
     if bias:
-        p_1 = a * T.exp(-0.5 / (b**2) * T.dot((x - w).T, (x - w)))
+        p_1 = a * T.exp(-0.5 / (b**2) * T.diagonal(T.dot((x - W), (x - W).T)))
     else:
         p_1 = a * T.exp(-0.5 / (1**2) * T.diagonal(T.dot((x - W), (x - W).T)))
     prediction = p_1 > 0.5
@@ -160,7 +159,6 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
         if minibatch:
             batch_split = train_test_split(x_train, y_train, test_size=0.2)
             _, D[0], _, D[1] = batch_split
-            #IPython.embed()
             pred, err = train(D[0], D[1])
 
         elif not minibatch:
@@ -174,6 +172,7 @@ def OptimalGaussian(x_train, y_train, Regression=True, Classification=False,
     Node['b'] = b.get_value()
     Node['a'] = a.get_value()
     Node['predict'] = predict
+    print "Gaussin node width: ", b.get_value()
 
     return Node
 
@@ -213,9 +212,11 @@ def EarlyStopNode(Node, x_validate, y_validate):
     #print "best path index: ", best_node_ind
     #print "best loss: ", best_loss
     #IPython.embed()
-
-    Node['w'] = best_node['w']
-    Node['b'] = best_node['b']
-    Node['a'] = best_node['a']
+    if best_node_ind > 0:
+        Node['w'] = best_node['w']
+        Node['b'] = best_node['b']
+        Node['a'] = best_node['a']
+    else:
+        print "Early stop at index 0!!!"
 
     return Node
