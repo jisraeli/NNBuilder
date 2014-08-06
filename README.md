@@ -26,5 +26,6 @@ In a nutshell:
 		to simplify learning for each node.
 		Also, by maintaining mean 0 and variance 1 gaussian with b=1 
 		may learn more effectively than other nodes.
+		But first this idea will be tested with sigmoidal nodes only.
 	
 
