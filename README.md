@@ -2,7 +2,7 @@ NNBuilder
 =========
 Building Neural Network Models Node by Node.
 
-AdaScale: This NNBuilder version attempts adaptive scaling/preprocessing
+AdaScale: This NNBuilder version attempts adaptive scaling/preprocessing. Implementation in progress.
 
 In a nutshell:
 	
@@ -11,10 +11,12 @@ In a nutshell:
 	Predictions are made recrusively by:
 
 		add prediction from the most recent node
-			apply most recent inverse transform
+			apply most recent postprocessing
 				add prediction from previous node
-					apply previous inverse transform
-						etc.
+					apply previous postprocessing
+						.....
+							add prediction from 0th node
+								apply 0th postprocessing 
 
 	Expected benefits:
 
