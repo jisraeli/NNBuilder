@@ -64,7 +64,7 @@ Y = iris.target
 # then makes 3D plot of the test data and predictions
 data = RunLayerBuilder(NumNodes=40, X=X, Y=Y, n_iter=5000, alpha=0.0,
                        epsilon=1.0, test_size=0.25,  boostCV_size=0.15,
-                       nodeCV_size=0.18, Validation='Shuffled',
+                       nodeCV_size=0.18, Validation='Uniform',
                        minibatch=True, SymmetricLabels=False)
 sys.exit()
 '''
@@ -77,6 +77,16 @@ ax.scatter(X_test[:, 0], X_test[:, 1], pred_clf_raw, color='red')
 plt.show()
 sys.exit()
 '''
+errs, results, N = data
+X_test, Y_test, pred_clf_raw = results
+data = plt.scatter(X_test, Y_test)
+model = plt.scatter(X_test, pred_clf_raw, color='red')
+plt.legend([data, model], ['Actual Data', 'Model Predictions'], loc='best')
+plt.ylabel('Median House Value (in thousands $)')
+plt.xlabel('% of the population in lower class')
+plt.title('House-price predictions based size of lower class')
+plt.show()
+sys.exit()
 
 # This code block runs the algorithm 5 times, then makes nothced boxplot of
 # performance of the algorithm and the best out-of-the-box algorithms on

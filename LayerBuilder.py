@@ -34,7 +34,7 @@ def InitLayer(X_train_node, Y_train_node, X_validate_node, Y_validate_node,
     Node = EarlyStopNode(Node, X_validate_node, Y_validate_node)
 
     Node['lr'] = epsilon
-    Layer['1'] = Node
+    Layer['0'] = Node
 
     return Layer
 
@@ -208,7 +208,7 @@ def PrintRates(Layer):
 
 def BuildLayer(NumNodes, X_train, Y_train, X_validate_layer, Y_validate_layer,
                n_iter, alpha, epsilon=1.0, Validation='Uniform',
-               minibatch=False, nodeCV_size=0.1):
+               minibatch=False, nodeCV_size=0.1, AdaScale=False):
     '''
     Builds a Layer by optimizing new nodes and adding them if they are useful.
     Here's how it works:
@@ -226,6 +226,11 @@ def BuildLayer(NumNodes, X_train, Y_train, X_validate_layer, Y_validate_layer,
             else:
                 stop building the layer
 
+    When AdaScale is turned on:
+        before a new node is optimized
+            the pseudo-response is computed
+            preprocessed with a new scaler (hence, adaptive scaling)
+            then the node is optimized
     '''
     print 'Building layer with ', Validation, 'Validation sets'
     print 'Initializing Layer..'
@@ -309,6 +314,38 @@ def Postprocess(X, scaler):
 
     return X
 
+
+def LayerPredict(Layer, X, AdaScale=False):
+    '''
+    outputs layer's predictions (or Y_pseudo?) on X
+    default option:
+        scale, linearly combine nodes, inverse transform
+    experimental options:
+        starting from I=K:
+            add Ith prediction
+            apply Ith inverse transform
+            I = I -1 
+    '''
+    pred = 0
+    N = len(Layer.keys())
+    inds = range(1, N+1)[::-1]
+    Scalers = Layer['Scalers']
+    if not AdaScale:
+        for ind in inds:
+            node = Layer[str(ind)]
+            predict = node['predict']
+            pred += predict(X_train_node) * node['lr']
+        scaler = Scalers[0]
+        pred = Postprocess(pred, scaler)
+    elif AdaScale:
+        for ind in inds:
+            node = Layer[str(ind)]
+            predict = node['predict']
+            scaler = Scalers[ind]
+            pred_t = predict(X_train_node) * node['lr']
+            pred += Postprocess(pred_t, scaler)
+    
+    return pred
 
 def FoldLabels(Y):
 
