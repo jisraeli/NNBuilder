@@ -280,7 +280,7 @@ def BuildLayer(NumNodes, X_train, Y_train, X_validate_layer, Y_validate_layer,
     return Layer
 
 
-def Preprocess(X):
+def Preprocess(X, Scaler=None):
     '''
     PreProcesses data arrays
     returns
@@ -290,11 +290,15 @@ def Preprocess(X):
     if len(numpy.shape(X)) == 2:
         #scaler = preprocessing.MinMaxScaler().fit(X)
         scaler = preprocessing.StandardScaler().fit(X)
+        if Scaler is not None:
+            scaler = Scaler
         X = scaler.transform(X)
     elif len(numpy.shape(X)) == 1:
         X = numpy.reshape(X, (len(X), 1))
         #scaler = preprocessing.MinMaxScaler().fit(X)
         scaler = preprocessing.StandardScaler().fit(X)
+        if Scaler is not None:
+            scaler = Scaler
         X = scaler.transform(X)
         X = numpy.reshape(X, (len(X)))
 
@@ -324,7 +328,7 @@ def LayerPredict(Layer, X, AdaScale=False):
         starting from I=K:
             add Ith prediction
             apply Ith inverse transform
-            I = I -1 
+            I = I -1
     '''
     pred = 0
     N = len(Layer.keys())
@@ -344,8 +348,9 @@ def LayerPredict(Layer, X, AdaScale=False):
             scaler = Scalers[ind]
             pred_t = predict(X_train_node) * node['lr']
             pred += Postprocess(pred_t, scaler)
-    
+
     return pred
+
 
 def FoldLabels(Y):
 
@@ -376,7 +381,7 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
         x_train, x_train_inds = FoldLabels(x_train)
         X_test, X_test_inds = FoldLabels(X_test)
     x_train, x_train_scaler = Preprocess(x_train)
-    X_test, X_test_scaler = Preprocess(X_test)
+    X_test, _ = Preprocess(X_test, Scaler=x_train_scaler)
     y_train, y_train_scaler = Preprocess(y_train)
 
     train_validate = train_test_split(x_train, y_train, test_size=boostCV_size)
@@ -435,7 +440,7 @@ def RunLayerBuilder(NumNodes, X, Y, n_iter, alpha, epsilon=0.01, test_size=0.3,
     err_test = numpy.mean(abs(Y_test - pred_test)**2)
     print "test error: ", err_test
 
-    X_test = Postprocess(X_test, X_test_scaler)
+    X_test = Postprocess(X_test, x_train_scaler)
     if SymmetricLabels:
         x_train = unFoldLabels(x_train, x_train_inds)
         X_test = unFoldLabels(X_test, X_test_inds)
